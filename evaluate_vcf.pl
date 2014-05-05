@@ -4,11 +4,15 @@ use warnings;
 use strict;
 
 use IO::File;
+use Getopt::Long;
+use File::Basename;
+use File::Spec;
 
 my $JOINX = "/usr/bin/joinx1.8";
 my $BEDTOOLS = "/gscmnt/gc3042/cle_validation/src/bedtools2-2.19.1/bin/bedtools";
 my $VCFLIB= "/gscmnt/gc3042/cle_validation/src/vcflib/bin";
 my $REFERENCE = "/gscmnt/gc3042/cle_validation/reference/all_sequences.fa";
+my $DEBUG = 0;
 
 #Basic algorithm should be as follows:
 # 1. Take in the ROI to restrict to, the VCF to evaluate, a BED file of positions you shouldn't find and a VCF file of variants you SHOULD find. (note that your VCF shouldn't contain hom ref calls then)
@@ -22,20 +26,57 @@ my $REFERENCE = "/gscmnt/gc3042/cle_validation/reference/all_sequences.fa";
 #   2.7. Run bedtools intersect of the evaluation VCF against the TN BED file to get #FP
 #   2.8. Count the input files
 #   2.9. Report the numbers
-sub allelic_primitives {
-    my ($input_file, $output_file) = @_;
-    execute("$VCFLIB/vcfallelicprimitives -t ALLELICPRIMITIVE $input_file > $output_file");
+my $vcf;
+my $roi;
+my $gold_vcf;
+my $tn_bed;
+my $help;
+
+GetOptions(
+    'vcf=s' => \$vcf,
+    'roi=s' => \$roi,
+    'gold-vcf=s' => \$gold_vcf,
+    'true-negative-bed=s' => \$tn_bed,
+    'help!' => \$help,
+) or print_help();
+print_help() if $help;
+my $bgzip_pipe_cmd = "| bgzip -c ";
+
+my ($basename, $path, $suffix) = fileparse($vcf, ".vcf.gz");
+
+restrict("$basename$suffix", $roi, "$basename.roi.vcf.gz");
+restrict($gold_vcf, $roi, "$gold_vcf.roi.vcf.gz");
+restrict($tn_bed, $roi, "$tn_bed.roi.bed.gz");
+
+pass_only("$basename.roi.vcf.gz", "$basename.roi.pass_only.vcf.gz");
+allelic_primitives("$basename.roi.pass_only.vcf.gz", "$basename.roi.pass_only.allelic_primitives.vcf.gz");
+normalize_vcf("$basename.roi.pass_only.allelic_primitives.vcf.gz", $REFERENCE, "$basename.roi.pass_only.allelic_primitives.normalized.vcf.gz");
+sort_file("$basename.roi.pass_only.allelic_primitives.normalized.vcf.gz","$basename.roi.pass_only.allelic_primitives.normalized.sorted.vcf.gz");
+restrict("$basename.roi.pass_only.allelic_primitives.normalized.sorted.vcf.gz", $roi, "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz");
+compare("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$gold_vcf.roi.vcf.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared");
+number_within_roi("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$tn_bed.roi.bed.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.in_tn_bed.vcf.gz");
+
+sub print_help {
+    print STDERR "evaluate_vcf --vcf --roi --gold-vcf --true-negative-bed\n";
+    exit;
 }
 
-
-sub sort {
+sub allelic_primitives {
     my ($input_file, $output_file) = @_;
-    execute("$JOINX sort $input_file > $output_file");
+    execute("$VCFLIB/vcfallelicprimitives -t ALLELICPRIMITIVE $input_file | $VCFLIB/vcffixup - |  $VCFLIB/vcffilter -f 'AC > 0' $bgzip_pipe_cmd > $output_file");
+    execute("tabix -p vcf $output_file");
+}
+
+sub sort_file {
+    my ($input_file, $output_file) = @_;
+    execute("$JOINX sort $input_file $bgzip_pipe_cmd > $output_file");
+    execute("tabix -p vcf $output_file");
 }
 
 sub normalize_vcf {
     my ($input_file, $reference, $output_file) = @_;
-    execute("$JOINX vcf-normalize-indels -f $reference $input_file > $output_file");
+    execute("$JOINX vcf-normalize-indels -f $reference $input_file $bgzip_pipe_cmd > $output_file");
+    execute("tabix -p vcf $output_file");
 }
 
 sub restrict {
@@ -43,8 +84,17 @@ sub restrict {
 
     #TODO Check on what happens with headers if $input_file has a header
     #TODO Check on what happens to VCF entries that span a boundary of the ROI (e.g. deletion)
-    my $cmd = "$BEDTOOLS subtract -a $input_file -b $roi_file > $output_file";
+    execute("zgrep '^#' $input_file | perl -pe 's/\\s(\\S+?NA12878)(.+?)(\\s+)/\\tNA12878\$3/g' > /tmp/header");
+    my $cmd = "$BEDTOOLS intersect -a $input_file -b $roi_file | cat /tmp/header - $bgzip_pipe_cmd > $output_file";
     execute($cmd); #this is not very safe. I would really prefer to use Genome or IPC::Run
+    execute("tabix -p vcf $output_file");
+}
+
+sub pass_only {
+    my ($input_file, $output_file) = @_;
+
+    execute("$VCFLIB/vcffilter -g 'FT = PASS | FT = .' $input_file | grep -v '.	.\$' $bgzip_pipe_cmd > $output_file");
+    execute("tabix -p vcf $output_file");
 }
 
 sub compare {
@@ -56,19 +106,37 @@ sub compare {
 #  -s [ --sample-name ] arg operate only on these samples (may specify multiple
 #                           times)
     my ($input_file, $gold_file, $output_file) = @_;
-    execute("$JOINX vcf-compare-gt $input_file $gold_file > $output_file");
+    execute("$JOINX vcf-compare-gt $input_file $gold_file -s NA12878 > $output_file");
 }
+
+sub true_positives {
+    my ($joinx_output) = @_;
+    my $shared_count = 0;
+    my $gold_only_count = 0;
+    my $test_only_count = 0;
+    my $fh = IO::File->new($joinx_output) or die "Unable to open $joinx_output to calculate size\n";
+    my $header = $fh->getline;
+    my @lines = map { chomp $_; $_} $fh->getlines;
+    $fh->close;
+
+    $test_only_count += (split /\t/, $lines[0])[2];
+    $gold_only_count += (split /\t/, $lines[1])[2];
+    $shared_count += (split /\t/, $lines[2])[2];
+    return ($test_only_count, $gold_only_count, $shared_count);
+}
+
 
 sub number_within_roi {
     my ($input_file, $roi, $output_file) = @_;
-    execute("$BEDTOOLS intersect -a -b > $output_file");
-    count_bed($output_file);
+    execute("$BEDTOOLS intersect -a $input_file -b $roi $bgzip_pipe_cmd > $output_file");
+    execute("tabix -p vcf $output_file");
+    return count($output_file);
 }
 
 
-sub count_bed {
-    my $bed = shift;
-    my @results = `cut -f1,2,3 $bed | sort -u | wc -l`;
+sub count {
+    my $file = shift;
+    my @results = `zgrep -v '^#' $file | cut -f1,2,3 | sort -u | wc -l`;
     chomp $results[0];
     return $results[0];
 }
