@@ -128,7 +128,7 @@ sub true_positives {
 
 sub number_within_roi {
     my ($input_file, $roi, $output_file) = @_;
-    execute("$BEDTOOLS intersect -a $input_file -b $roi $bgzip_pipe_cmd > $output_file");
+    execute("$BEDTOOLS intersect -header -a $input_file -b $roi $bgzip_pipe_cmd > $output_file");
     execute("tabix -p vcf $output_file");
     return count($output_file);
 }
