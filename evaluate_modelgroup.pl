@@ -6,6 +6,7 @@ use warnings;
 use lib "/gscmnt/gc3042/cle_validation/src/genome/lib/perl/";
 
 use File::Spec;
+use Getopt::Long;
 use Genome;
 use Cwd;
 
@@ -41,7 +42,7 @@ for my $build (Genome::ModelGroup->get($model_group)->builds) {
             mkdir $dirname;
         }
         chdir $dirname;
-        my $file = $build->id->data_directory . "/variants/$variant_type.vcf.gz";
+        my $file = $build->data_directory . "/variants/$variant_type.vcf.gz";
         my $file_name = filename($file);
         symlink $file, $file_name;
         my $roi_name = filename($roi);
