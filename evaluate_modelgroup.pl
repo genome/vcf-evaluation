@@ -33,6 +33,8 @@ $gold_indel_vcf = Cwd::abs_path($gold_indel_vcf);
 $gold_snv_vcf = Cwd::abs_path($gold_snv_vcf);
 $tn_bed = Cwd::abs_path($tn_bed);
 
+my $tn_bed_size;
+
 for my $build (Genome::ModelGroup->get($model_group)->builds) {
     
     my $dirname = $build->id;
@@ -61,7 +63,9 @@ for my $build (Genome::ModelGroup->get($model_group)->builds) {
         my $old_sample = $build->model->subject_name;
 
         my @output = `perl /gscmnt/gc3042/cle_validation/src/evaluation/evaluate_vcf.pl --vcf $file_name --roi $roi_name --gold-vcf $gold_file_name --true-negative-bed $tn_bed_name --old-sample $old_sample --new-sample NA12878`;
-        print $build->model->name, "\t", $output[0];
+        $tn_bed_size = bed_size($tn_bed_name . ".roi.bed.gz") unless defined $tn_bed_size;
+        chomp($output[0]);
+        print $build->model->name, "\t", $output[0], "\t", $tn_bed_size, "\n";
         chdir $cwd;
     }
 
@@ -78,3 +82,15 @@ sub print_help {
     exit;
 }
 
+sub bed_size {
+    my $bed = shift;
+    my $count = 0;
+    my $fh = IO::File->new("zcat $bed |") or die "Unable to open $bed to calculate size\n";
+    while(my $line  = $fh->getline) {
+        chomp $line;
+        my ($chr, $start, $stop) = split "\t", $line;
+        $count += $stop-$start;
+    }
+    $fh->close;
+    return $count;
+}
