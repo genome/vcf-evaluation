@@ -30,6 +30,8 @@ my $vcf;
 my $roi;
 my $gold_vcf;
 my $tn_bed;
+my $old_sample;
+my $new_sample;
 my $help;
 
 GetOptions(
@@ -37,6 +39,8 @@ GetOptions(
     'roi=s' => \$roi,
     'gold-vcf=s' => \$gold_vcf,
     'true-negative-bed=s' => \$tn_bed,
+    'old-sample=s' => \$old_sample,
+    'new-sample=s' => \$new_sample,
     'help!' => \$help,
 ) or print_help();
 print_help() if $help;
@@ -89,7 +93,11 @@ sub restrict {
 
     #TODO Check on what happens with headers if $input_file has a header
     #TODO Check on what happens to VCF entries that span a boundary of the ROI (e.g. deletion)
-    execute("zgrep '^#' $input_file | perl -pe 's/\\s(\\S+?NA12878)(.+?)(\\s+)/\\tNA12878\$3/g' > /tmp/header");
+    my $replace_cmd = "";
+    if($old_sample && $new_sample) {
+        $replace_cmd = "| perl -pe 's/$old_sample/$new_sample/g'";
+    }
+    execute("zgrep '^#' $input_file $replace_cmd > /tmp/header");
     my $cmd = "$BEDTOOLS intersect -a $input_file -b $roi_file | cat /tmp/header - $bgzip_pipe_cmd > $output_file";
     execute($cmd); #this is not very safe. I would really prefer to use Genome or IPC::Run
     execute("tabix -p vcf $output_file");
