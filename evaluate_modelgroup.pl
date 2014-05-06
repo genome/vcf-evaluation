@@ -28,6 +28,11 @@ GetOptions(
 ) or print_help();
 print_help() if $help;
 
+$roi = Cwd::abs_path($roi);
+$gold_indel_vcf = Cwd::abs_path($gold_indel_vcf);
+$gold_snv_vcf = Cwd::abs_path($gold_snv_vcf);
+$tn_bed = Cwd::abs_path($tn_bed);
+
 for my $build (Genome::ModelGroup->get($model_group)->builds) {
     
     my $dirname = $build->id;
@@ -52,7 +57,10 @@ for my $build (Genome::ModelGroup->get($model_group)->builds) {
         my $gold_file = $variant_type eq "snvs" ? $gold_snv_vcf : $gold_indel_vcf;
         my $gold_file_name = filename($gold_file);
         symlink $gold_file, $gold_file_name;
-        my @output = `perl /gscmnt/gc3042/cle_validation/src/evaluation/evaluate_vcf.pl --vcf $file_name --roi $roi_name --gold-vcf $gold_file_name --true-negative-bed $tn_bed_name`;
+
+        my $old_sample = $build->model->subject_name;
+
+        my @output = `perl /gscmnt/gc3042/cle_validation/src/evaluation/evaluate_vcf.pl --vcf $file_name --roi $roi_name --gold-vcf $gold_file_name --true-negative-bed $tn_bed_name --old-sample $old_sample --new-sample NA12878`;
         print $build->model->name, "\t", $output[0];
         chdir $cwd;
     }
