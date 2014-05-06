@@ -154,18 +154,6 @@ sub count {
     return $results[0];
 }
 
-sub bed_size {
-    my $bed = shift;
-    my $count = 0;
-    my $fh = IO::File->new($bed) or die "Unable to open $bed to calculate size\n";
-    while(my $line  = $fh->getline) {
-        chomp $line;
-        my ($chr, $start, $stop) = split "\t", $line;
-        $count += $stop-$start;
-    }
-    $fh->close;
-    return $count;
-}
 
 sub print_versions {
     print `$JOINX --version`;
