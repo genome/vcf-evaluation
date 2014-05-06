@@ -54,7 +54,12 @@ normalize_vcf("$basename.roi.pass_only.allelic_primitives.vcf.gz", $REFERENCE, "
 sort_file("$basename.roi.pass_only.allelic_primitives.normalized.vcf.gz","$basename.roi.pass_only.allelic_primitives.normalized.sorted.vcf.gz");
 restrict("$basename.roi.pass_only.allelic_primitives.normalized.sorted.vcf.gz", $roi, "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz");
 compare("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$gold_vcf.roi.vcf.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared");
-number_within_roi("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$tn_bed.roi.bed.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.in_tn_bed.vcf.gz");
+
+#NOTE We will not calculate the size of the roi here and instead will assume it is calculated elsewhere if needed.
+my $false_positives_in_roi = number_within_roi("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$tn_bed.roi.bed.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.in_tn_bed.vcf.gz");
+my ($eval_only, $gold_only, $tp) = true_positives("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared");
+print join("\t", $tp, $tp + $gold_only, $eval_only, $false_positives_in_roi),"\n"; 
+
 
 sub print_help {
     print STDERR "evaluate_vcf --vcf --roi --gold-vcf --true-negative-bed\n";
