@@ -65,7 +65,7 @@ for my $build (Genome::ModelGroup->get($model_group)->builds) {
         my @output = `perl /gscmnt/gc3042/cle_validation/src/evaluation/evaluate_vcf.pl --vcf $file_name --roi $roi_name --gold-vcf $gold_file_name --true-negative-bed $tn_bed_name --old-sample $old_sample --new-sample NA12878`;
         $tn_bed_size = bed_size($tn_bed_name . ".roi.bed.gz") unless defined $tn_bed_size;
         chomp($output[0]);
-        print $build->model->name, "\t", $output[0], "\t", $tn_bed_size, "\n";
+        print join("\t",$build->model->name, $build->id, $variant_type, $output[0], $tn_bed_size), "\n";
         chdir $cwd;
     }
 
