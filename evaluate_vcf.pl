@@ -106,7 +106,7 @@ sub restrict {
 sub pass_only {
     my ($input_file, $output_file) = @_;
 
-    execute("$VCFLIB/vcffilter -g 'FT = PASS | FT = .' $input_file | grep -v '.	.\$' $bgzip_pipe_cmd > $output_file");
+    execute("$VCFLIB/vcffilter -g 'FT = PASS | FT = .' $input_file | perl -e 'while(<>) {\@F = split /\t/; if(/^#/ or not grep { \$_ eq q{.} } splice(\@F,9)) { print} }'  $bgzip_pipe_cmd > $output_file");
     execute("tabix -p vcf $output_file");
 }
 
