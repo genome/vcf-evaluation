@@ -98,7 +98,7 @@ sub restrict {
         $replace_cmd = "| perl -pe 's/$old_sample/$new_sample/g'";
     }
     execute("zgrep '^#' $input_file $replace_cmd > /tmp/header");
-    my $cmd = "$BEDTOOLS intersect -a $input_file -b $roi_file | cat /tmp/header - $bgzip_pipe_cmd > $output_file";
+    my $cmd = "zcat $input_file | $BEDTOOLS intersect -a stdin -b $roi_file | cat /tmp/header - $bgzip_pipe_cmd > $output_file";
     execute($cmd); #this is not very safe. I would really prefer to use Genome or IPC::Run
     execute("tabix -p vcf $output_file");
 }
@@ -141,7 +141,7 @@ sub true_positives {
 
 sub number_within_roi {
     my ($input_file, $roi, $output_file) = @_;
-    execute("$BEDTOOLS intersect -header -a $input_file -b $roi $bgzip_pipe_cmd > $output_file");
+    execute("zcat $input_file | $BEDTOOLS intersect -header -a stdin -b $roi $bgzip_pipe_cmd > $output_file");
     execute("tabix -p vcf $output_file");
     return count($output_file);
 }
