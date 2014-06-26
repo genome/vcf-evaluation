@@ -106,7 +106,14 @@ sub restrict {
 sub pass_only {
     my ($input_file, $output_file) = @_;
 
-    execute("$VCFLIB/vcffilter -g 'FT = PASS | FT = .' $input_file | perl -e 'while(<>) {\@F = split /\t/; if(/^#/ or not grep { \$_ eq q{.} } splice(\@F,9)) { print} }'  $bgzip_pipe_cmd > $output_file");
+    #check for FT tag
+    my @FT = `zgrep -m1 '##FORMAT=<ID=FT,' $input_file`;
+    if(@FT) {
+        execute("$VCFLIB/vcffilter -g 'FT = PASS | FT = .' $input_file | perl -e 'while(<>) {\@F = split /\t/; if(/^#/ or not grep { \$_ eq q{.} } splice(\@F,9)) { print} }'  $bgzip_pipe_cmd > $output_file");
+    }
+    else {
+        execute("zcat $input_file | perl -ape '\$_=q{} unless(\$F[6] eq q{PASS} || \$F[6] eq q{.} || \$F[0] =~ /^#/)' $bgzip_pipe_cmd > $output_file");
+    }
     execute("tabix -p vcf $output_file");
 }
 
