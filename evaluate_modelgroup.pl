@@ -60,7 +60,13 @@ for my $build (Genome::ModelGroup->get($model_group)->builds) {
         my $gold_file_name = filename($gold_file);
         symlink $gold_file, $gold_file_name;
 
-        my $old_sample = $build->model->subject_name;
+        my $old_sample;
+        if($build->model->subclass_name eq 'Genome::Model::SomaticValidation') {
+            $old_sample = $build->model->tumor_sample->name;
+        }
+        else {
+            $old_sample = $build->model->subject_name;
+        }
 
         my @output = `perl /gscmnt/gc3042/cle_validation/src/evaluation/evaluate_vcf.pl --vcf $file_name --roi $roi_name --gold-vcf $gold_file_name --true-negative-bed $tn_bed_name --old-sample $old_sample --new-sample NA12878`;
         $tn_bed_size = bed_size($tn_bed_name . ".roi.bed.gz") unless defined $tn_bed_size;
