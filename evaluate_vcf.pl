@@ -8,7 +8,7 @@ use Getopt::Long;
 use File::Basename;
 use File::Spec;
 
-my $JOINX = "/usr/bin/joinx1.8";
+my $JOINX = "~dlarson/src/joinx/build/bin/joinx";
 my $BEDTOOLS = "/gscmnt/gc3042/cle_validation/src/bedtools2-2.19.1/bin/bedtools";
 my $VCFLIB= "/gscmnt/gc3042/cle_validation/src/vcflib/bin";
 my $REFERENCE = "/gscmnt/gc3042/cle_validation/reference/all_sequences.fa";
@@ -57,7 +57,7 @@ allelic_primitives("$basename.roi.pass_only.vcf.gz", "$basename.roi.pass_only.al
 normalize_vcf("$basename.roi.pass_only.allelic_primitives.vcf.gz", $REFERENCE, "$basename.roi.pass_only.allelic_primitives.normalized.vcf.gz");
 sort_file("$basename.roi.pass_only.allelic_primitives.normalized.vcf.gz","$basename.roi.pass_only.allelic_primitives.normalized.sorted.vcf.gz");
 restrict("$basename.roi.pass_only.allelic_primitives.normalized.sorted.vcf.gz", $roi, "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz");
-compare("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$gold_vcf.roi.vcf.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared");
+compare_partial("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$gold_vcf.roi.vcf.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared");
 
 #NOTE We will not calculate the size of the roi here and instead will assume it is calculated elsewhere if needed.
 my $false_positives_in_roi = number_within_roi("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$tn_bed.roi.bed.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.in_tn_bed.vcf.gz");
@@ -127,6 +127,11 @@ sub compare {
 #                           times)
     my ($input_file, $gold_file, $output_file) = @_;
     execute("$JOINX vcf-compare-gt $input_file $gold_file -s NA12878 > $output_file");
+}
+
+sub compare_partial {
+    my ($input_file, $gold_file, $output_file) = @_;
+    execute("$JOINX vcf-compare $input_file $gold_file -s NA12878 > $output_file");
 }
 
 sub true_positives {
