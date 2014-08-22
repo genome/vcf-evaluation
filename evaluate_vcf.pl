@@ -7,6 +7,7 @@ use IO::File;
 use Getopt::Long;
 use File::Basename;
 use File::Spec;
+use VcfCompare;
 
 my $JOINX = "~dlarson/src/joinx/build/bin/joinx";
 my $BEDTOOLS = "/gscmnt/gc3042/cle_validation/src/bedtools2-2.19.1/bin/bedtools";
@@ -61,7 +62,7 @@ compare_partial("$basename.roi.pass_only.allelic_primitives.normalized.sorted.re
 
 #NOTE We will not calculate the size of the roi here and instead will assume it is calculated elsewhere if needed.
 my $false_positives_in_roi = number_within_roi("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$tn_bed.roi.bed.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.in_tn_bed.vcf.gz");
-my ($eval_only, $gold_only, $tp) = true_positives("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared");
+my ($eval_only, $gold_only, $tp) = true_positives("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$gold_vcf.roi.vcf.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared","$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared");
 print join("\t", $tp, $tp + $gold_only, $eval_only, $false_positives_in_roi),"\n"; 
 
 
@@ -135,19 +136,14 @@ sub compare_partial {
 }
 
 sub true_positives {
-    my ($joinx_output) = @_;
-    my $shared_count = 0;
-    my $gold_only_count = 0;
-    my $test_only_count = 0;
-    my $fh = IO::File->new($joinx_output) or die "Unable to open $joinx_output to calculate size\n";
-    my $header = $fh->getline;
-    my @lines = map { chomp $_; $_} $fh->getlines;
-    $fh->close;
-
-    $test_only_count += (split /\t/, $lines[0])[2];
-    $gold_only_count += (split /\t/, $lines[1])[2];
-    $shared_count += (split /\t/, $lines[2])[2];
-    return ($test_only_count, $gold_only_count, $shared_count);
+    my ($input_file, $gold_file, $joinx_output) = @_;
+    my $table = VcfCompare->new($joinx_output);
+    #for now only do perfect matches
+    return (
+        $table->unique_count($input_file, "exact_match", "NA12878"),
+        $table->unique_count($gold_file, "exact_match", "NA12878"),
+        $table->joint_count("exact_match", "NA12878"),
+    );
 }
 
 
