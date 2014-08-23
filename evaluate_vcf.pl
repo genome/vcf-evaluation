@@ -62,8 +62,13 @@ compare_partial("$basename.roi.pass_only.allelic_primitives.normalized.sorted.re
 
 #NOTE We will not calculate the size of the roi here and instead will assume it is calculated elsewhere if needed.
 my $false_positives_in_roi = number_within_roi("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$tn_bed.roi.bed.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.in_tn_bed.vcf.gz");
-my ($eval_only, $gold_only, $tp) = true_positives("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$gold_vcf.roi.vcf.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared","$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared");
-print join("\t", $tp, $tp + $gold_only, $eval_only, $false_positives_in_roi),"\n"; 
+my %results = true_positives("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$gold_vcf.roi.vcf.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared","$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared");
+print join("\t", 
+    $results{true_positive_exact}, 
+    $results{true_positive_exact} + $results{false_negative_exact},
+    $results{false_positive_exact},
+    $false_positives_in_roi),
+"\n"; 
 
 
 sub print_help {
@@ -140,9 +145,14 @@ sub true_positives {
     my $table = VcfCompare->new($joinx_output);
     #for now only do perfect matches
     return (
-        $table->unique_count($input_file, "exact_match", "NA12878"),
-        $table->unique_count($gold_file, "exact_match", "NA12878"),
-        $table->joint_count("exact_match", "NA12878"),
+        false_positive_exact => $table->unique_count($input_file, "exact_match", "NA12878"),
+        false_negative_exact => $table->unique_count($gold_file, "exact_match", "NA12878"),
+        true_positive_exact => $table->joint_count("exact_match", "NA12878"),
+        false_positive_partial => $table->unique_count($input_file, "partial_match", "NA12878"),
+        false_negative_partial => $table->unique_count($gold_file, "partial_miss", "NA12878"),
+        true_positive_partial => $table->joint_count("partial_match", "NA12878"),
+        false_positive_complete => $table->unique_count($input_file, "complete_miss", "NA12878"),
+        false_negative_complete => $table->unique_count($gold_file, "complete_miss", "NA12878"),
     );
 }
 
