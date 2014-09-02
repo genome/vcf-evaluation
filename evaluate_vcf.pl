@@ -66,7 +66,12 @@ my %results = true_positives("$basename.roi.pass_only.allelic_primitives.normali
 print join("\t", 
     $results{true_positive_exact}, 
     $results{true_positive_exact} + $results{false_negative_exact},
+    sprintf("%0.02f", $results{true_positive_exact} / ($results{true_positive_exact} + $results{false_negative_exact}) * 100),
+    $results{true_positive_partial},
+    $results{true_positive_partial} + $results{false_negative_partial},
+    sprintf("%0.02f", $results{true_positive_partial} / ($results{true_positive_partial} + $results{false_negative_partial}) * 100),
     $results{false_positive_exact},
+    $results{false_positive_partial},
     $false_positives_in_roi),
 "\n"; 
 
@@ -149,10 +154,12 @@ sub true_positives {
         false_negative_exact => $table->unique_count($gold_file, "exact_match", "NA12878"),
         true_positive_exact => $table->joint_count("exact_match", "NA12878"),
         false_positive_partial => $table->unique_count($input_file, "partial_match", "NA12878"),
-        false_negative_partial => $table->unique_count($gold_file, "partial_miss", "NA12878"),
+        false_negative_partial => $table->unique_count($gold_file, "partial_match", "NA12878"),
         true_positive_partial => $table->joint_count("partial_match", "NA12878"),
-        false_positive_complete => $table->unique_count($input_file, "complete_miss", "NA12878"),
-        false_negative_complete => $table->unique_count($gold_file, "complete_miss", "NA12878"),
+        false_positive_partial_miss => $table->unique_count($input_file, "partial_miss", "NA12878"),
+        false_negative_partial_miss => $table->unique_count($gold_file, " partial_miss", "NA12878"),
+        false_positive_complete_miss => $table->unique_count($input_file, "complete_miss", "NA12878"),
+        false_negative_complete_miss => $table->unique_count($gold_file, "complete_miss", "NA12878"),
     );
 }
 
