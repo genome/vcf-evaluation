@@ -34,6 +34,7 @@ $gold_snv_vcf = Cwd::abs_path($gold_snv_vcf);
 $tn_bed = Cwd::abs_path($tn_bed);
 
 my $tn_bed_size;
+print join("\t", qw( Name Id VarType True_Positive_Found_Exact Total_True_Positive_Exact Sensitivity_Exact  True_Positive_Found_Partial Total_True_Positive_Partial Sensitivity_Partial False_Positive_Exact False_Positive_Partial True_Negatives)),"\n";
 
 for my $build (Genome::ModelGroup->get($model_group)->builds) {
     
@@ -43,7 +44,6 @@ for my $build (Genome::ModelGroup->get($model_group)->builds) {
     }
 
     #print header
-    print join("\t", qw( Name Id VarType True_Positive_Found_Exact Total_True_Positive_Exact Sensitivity_Exact  True_Positive_Found_Partial Total_True_Positive_Partial Sensitivity_Partial False_Positive_Exact False_Positive_Partial True_Negatives)),"\n";
     for my $variant_type qw( snvs indels ) {
         my $cwd = cwd();
         my $dirname = $build->id . "/$variant_type";
