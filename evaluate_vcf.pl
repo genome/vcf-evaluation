@@ -33,7 +33,7 @@ my $gold_vcf;
 my $tn_bed;
 my $old_sample;
 my $new_sample;
-my $tn_size;
+my $tn_bed_size;
 my $help;
 
 GetOptions(
@@ -43,7 +43,7 @@ GetOptions(
     'true-negative-bed=s' => \$tn_bed,
     'old-sample=s' => \$old_sample,
     'new-sample=s' => \$new_sample,
-    'true-negative-size=i' => \$tn_size,
+    'true-negative-size=i' => \$tn_bed_size,
     'help!' => \$help,
 ) or print_help();
 print_help() if $help;
@@ -63,23 +63,30 @@ restrict("$basename.roi.pass_only.allelic_primitives.normalized.sorted.vcf.gz", 
 compare_partial("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$gold_vcf.roi.vcf.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared");
 
 #NOTE We will not calculate the size of the roi here and instead will assume it is calculated elsewhere if needed.
+$tn_bed_size = bed_size("$tn_bed.roi.bed.gz") unless defined $tn_bed_size;
+
 my $false_positives_in_roi = number_within_roi("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$tn_bed.roi.bed.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.in_tn_bed.vcf.gz");
 my %results = true_positives("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$gold_vcf.roi.vcf.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared");
 print join("\t", 
     $results{true_positive_exact}, 
     $results{true_positive_exact} + $results{false_negative_exact},
-    sprintf("%0.02f", $results{true_positive_exact} / ($results{true_positive_exact} + $results{false_negative_exact}) * 100),
+    $results{true_positive_exact} / ($results{true_positive_exact} + $results{false_negative_exact}),
     $results{true_positive_partial},
     $results{true_positive_partial} + $results{false_negative_partial},
-    sprintf("%0.02f", $results{true_positive_partial} / ($results{true_positive_partial} + $results{false_negative_partial}) * 100),
+    $results{true_positive_partial} / ($results{true_positive_partial} + $results{false_negative_partial}),
     $results{false_positive_exact},
     $results{false_positive_partial},
+    #exact specificity
+    $results{false_positive_exact} / ($results{false_positive_exact} + $tn_bed_size),
+    $results{false_positive_partial} / ($results{false_positive_partial} + $tn_bed_size),
+    $results{true_positive_exact} / ($results{false_positive_exact} + $results{true_positive_exact}),
+    $results{true_positive_partial} / ($results{false_positive_partial} + $results{true_positive_partial}),
     $false_positives_in_roi),
 "\n"; 
 
 
 sub print_help {
-    print STDERR "evaluate_vcf --vcf --roi --gold-vcf --true-negative-bed\n";
+    print STDERR "evaluate_vcf --vcf --roi --gold-vcf --true-negative-bed\noptionally add --true-negative-size to avoid calculating the size of the true negative bed file by specifying it directly.\n";
     exit;
 }
 
@@ -173,6 +180,18 @@ sub number_within_roi {
     return count($output_file);
 }
 
+sub bed_size {
+    my $bed = shift;
+    my $count = 0;
+    my $fh = IO::File->new("zcat $bed |") or die "Unable to open $bed to calculate size\n";
+    while(my $line  = $fh->getline) {
+        chomp $line;
+        my ($chr, $start, $stop) = split "\t", $line;
+        $count += $stop-$start;
+    }
+    $fh->close;
+    return $count;
+}
 
 sub count {
     my $file = shift;
