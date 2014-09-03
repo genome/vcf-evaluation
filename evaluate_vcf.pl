@@ -76,6 +76,7 @@ print join("\t",
     $results{true_positive_partial} / ($results{true_positive_partial} + $results{false_negative_partial}),
     $results{false_positive_exact},
     $results{false_positive_partial},
+    $tn_bed_size,
     #exact specificity
     $results{false_positive_exact} / ($results{false_positive_exact} + $tn_bed_size),
     $results{false_positive_partial} / ($results{false_positive_partial} + $tn_bed_size),
