@@ -77,13 +77,14 @@ print join("\t",
     $results{false_positive_exact},
     $results{false_positive_partial},
     $tn_bed_size,
-    #exact specificity
+    #exact specificity, these are not strictly accurate as the tn_bed may be significantly smaller than the target space ROI
     ($tn_bed_size - $results{false_positive_exact}) / $tn_bed_size,
     ($tn_bed_size - $results{false_positive_partial}) / $tn_bed_size,
     $results{true_positive_exact} / ($results{false_positive_exact} + $results{true_positive_exact}),
     $results{true_positive_partial} / ($results{false_positive_partial} + $results{true_positive_partial}),
-    $false_positives_in_roi),
-"\n"; 
+    $false_positives_in_roi,
+    ($tn_bed_size - $false_positives_in_roi) / $tn_bed_size, #this is more accurate than the other specificity measures, but doesn't take partial into account
+), "\n"; 
 
 
 sub print_help {
