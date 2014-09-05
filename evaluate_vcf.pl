@@ -57,18 +57,20 @@ restrict("$basename$suffix", $roi, "$basename.roi.vcf.gz");
 restrict($gold_vcf, $roi, "$gold_vcf.roi.vcf.gz");
 restrict($tn_bed, $roi, "$tn_bed.roi.bed.gz");
 
-pass_only("$basename.roi.vcf.gz", "$basename.roi.pass_only.vcf.gz");
-allelic_primitives("$basename.roi.pass_only.vcf.gz", "$basename.roi.pass_only.allelic_primitives.vcf.gz");
-normalize_vcf("$basename.roi.pass_only.allelic_primitives.vcf.gz", $REFERENCE, "$basename.roi.pass_only.allelic_primitives.normalized.vcf.gz");
-sort_file("$basename.roi.pass_only.allelic_primitives.normalized.vcf.gz","$basename.roi.pass_only.allelic_primitives.normalized.sorted.vcf.gz");
-restrict("$basename.roi.pass_only.allelic_primitives.normalized.sorted.vcf.gz", $roi, "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz");
-compare_partial("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$gold_vcf.roi.vcf.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared", $gold_sample, $old_sample, $new_sample);
+restrict_vcf_to_sample("$basename.roi.vcf.gz", $old_sample, "$basename.roi.$old_sample.vcf.gz");
+
+pass_only("$basename.roi.$old_sample.vcf.gz", "$basename.roi.$old_sample.pass_only.vcf.gz");
+allelic_primitives("$basename.roi.$old_sample.pass_only.vcf.gz", "$basename.roi.$old_sample.pass_only.allelic_primitives.vcf.gz");
+normalize_vcf("$basename.roi.$old_sample.pass_only.allelic_primitives.vcf.gz", $REFERENCE, "$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.vcf.gz");
+sort_file("$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.vcf.gz","$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.sorted.vcf.gz");
+restrict("$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.sorted.vcf.gz", $roi, "$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz");
+compare_partial("$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$gold_vcf.roi.vcf.gz", "$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared", $gold_sample, $old_sample, $new_sample);
 
 #NOTE We will not calculate the size of the roi here and instead will assume it is calculated elsewhere if needed.
 $tn_bed_size = bed_size("$tn_bed.roi.bed.gz") unless defined $tn_bed_size;
 
-my $false_positives_in_roi = number_within_roi("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$tn_bed.roi.bed.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.in_tn_bed.vcf.gz");
-my %results = true_positives("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$gold_vcf.roi.vcf.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared", $new_sample);
+my $false_positives_in_roi = number_within_roi("$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$tn_bed.roi.bed.gz", "$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.sorted.reroi.in_tn_bed.vcf.gz");
+my %results = true_positives("$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$gold_vcf.roi.vcf.gz", "$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared", $new_sample);
 print join("\t", 
     $results{true_positive_exact}, 
     $results{true_positive_exact} + $results{false_negative_exact},
@@ -111,6 +113,13 @@ sub normalize_vcf {
     execute("$JOINX vcf-normalize-indels -f $reference $input_file $bgzip_pipe_cmd > $output_file");
     execute("tabix -p vcf $output_file");
 }
+
+sub restrict_vcf_to_sample {
+    my ($input_file, $sample, $output_file) = @_;
+    execute("$VCFLIB/vcfkeepsamples $input_file $sample $bgzip_pipe_cmd > $output_file");
+    execute("tabix -p vcf $output_file");
+}
+
 
 sub restrict {
     my ($input_file, $roi_file, $output_file)  = @_;
