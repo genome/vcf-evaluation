@@ -145,20 +145,9 @@ sub pass_only {
         execute("$VCFLIB/vcffilter $expression $input_file $bgzip_pipe_cmd > $output_file");
     }
     else {
-
-        #check for FT tag
-        my @FT = `zgrep -m1 '##FORMAT=<ID=FT,' $input_file`;
-        if(@FT) {
-            #per genotype filters in VCFLIB result in an empty . entry when things fail for that sample.
-            #info filters do not require this
-            # it is important not remove extra alleles prematurely as vcflib doesn't respect per-alt or per-ref info fields when culling
-            # the vcffixup in allelic primitives will fix these later
-            execute("$VCFLIB/vcffilter -g 'FT = PASS | FT = .' $input_file $bgzip_pipe_cmd > $output_file");
-        }
-        else {
-            execute("zcat $input_file | perl -ape '\$_=q{} unless(\$F[6] eq q{PASS} || \$F[6] eq q{.} || \$F[0] =~ /^#/)' $bgzip_pipe_cmd > $output_file");
-        }
+        execute("zcat $input_file | perl -ape '\$_=q{} unless(\$F[6] eq q{PASS} || \$F[6] eq q{.} || \$F[0] =~ /^#/)' $bgzip_pipe_cmd > $output_file");
     }
+}
     execute("tabix -p vcf $output_file");
 }
 
