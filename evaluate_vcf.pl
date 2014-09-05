@@ -62,13 +62,13 @@ allelic_primitives("$basename.roi.pass_only.vcf.gz", "$basename.roi.pass_only.al
 normalize_vcf("$basename.roi.pass_only.allelic_primitives.vcf.gz", $REFERENCE, "$basename.roi.pass_only.allelic_primitives.normalized.vcf.gz");
 sort_file("$basename.roi.pass_only.allelic_primitives.normalized.vcf.gz","$basename.roi.pass_only.allelic_primitives.normalized.sorted.vcf.gz");
 restrict("$basename.roi.pass_only.allelic_primitives.normalized.sorted.vcf.gz", $roi, "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz");
-compare_partial("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$gold_vcf.roi.vcf.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared", $gold_sample, $old_sample, "NA12878");
+compare_partial("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$gold_vcf.roi.vcf.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared", $gold_sample, $old_sample, $new_sample);
 
 #NOTE We will not calculate the size of the roi here and instead will assume it is calculated elsewhere if needed.
 $tn_bed_size = bed_size("$tn_bed.roi.bed.gz") unless defined $tn_bed_size;
 
 my $false_positives_in_roi = number_within_roi("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$tn_bed.roi.bed.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.in_tn_bed.vcf.gz");
-my %results = true_positives("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$gold_vcf.roi.vcf.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared");
+my %results = true_positives("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$gold_vcf.roi.vcf.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared", $new_sample);
 print join("\t", 
     $results{true_positive_exact}, 
     $results{true_positive_exact} + $results{false_negative_exact},
@@ -168,20 +168,20 @@ sub compare_partial {
 }
 
 sub true_positives {
-    my ($input_file, $gold_file, $joinx_output) = @_;
+    my ($input_file, $gold_file, $joinx_output, $new_sample) = @_;
     my $table = VcfCompare->new($joinx_output);
     #for now only do perfect matches
     return (
-        false_positive_exact => $table->unique_count($input_file, "exact_match", "NA12878"),
-        false_negative_exact => $table->unique_count($gold_file, "exact_match", "NA12878"),
-        true_positive_exact => $table->joint_count("exact_match", "NA12878"),
-        false_positive_partial => $table->unique_count($input_file, "partial_match", "NA12878"),
-        false_negative_partial => $table->unique_count($gold_file, "partial_match", "NA12878"),
-        true_positive_partial => $table->joint_count("partial_match", "NA12878"),
-        false_positive_partial_miss => $table->unique_count($input_file, "partial_miss", "NA12878"),
-        false_negative_partial_miss => $table->unique_count($gold_file, "partial_miss", "NA12878"),
-        false_positive_complete_miss => $table->unique_count($input_file, "complete_miss", "NA12878"),
-        false_negative_complete_miss => $table->unique_count($gold_file, "complete_miss", "NA12878"),
+        false_positive_exact => $table->unique_count($input_file, "exact_match", $new_sample),
+        false_negative_exact => $table->unique_count($gold_file, "exact_match", $new_sample),
+        true_positive_exact => $table->joint_count("exact_match", $new_sample),
+        false_positive_partial => $table->unique_count($input_file, "partial_match", $new_sample),
+        false_negative_partial => $table->unique_count($gold_file, "partial_match", $new_sample),
+        true_positive_partial => $table->joint_count("partial_match", $new_sample),
+        false_positive_partial_miss => $table->unique_count($input_file, "partial_miss", $new_sample),
+        false_negative_partial_miss => $table->unique_count($gold_file, "partial_miss", $new_sample),
+        false_positive_complete_miss => $table->unique_count($input_file, "complete_miss", $new_sample),
+        false_negative_complete_miss => $table->unique_count($gold_file, "complete_miss", $new_sample),
     );
 }
 

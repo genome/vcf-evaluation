@@ -74,7 +74,10 @@ while(my $line = $fh->getline) {
 
     #$tn_bed_size = bed_size($tn_bed_name . ".roi.bed.gz") unless defined $tn_bed_size;
 
-    my $cmd = "perl -I ~dlarson/src/evaluate/ ~dlarson/src/evaluate/evaluate_vcf.pl --vcf $file_name --roi $roi_name --gold-vcf $gold_file_name --true-negative-bed $tn_bed_name --old-sample $sample --new-sample NA12878";#--true-negative-size $tn_bed_size";
+    my $cmd = "perl -I ~dlarson/src/evaluate/ ~dlarson/src/evaluate/evaluate_vcf.pl --vcf $file_name --roi $roi_name --gold-vcf $gold_file_name --true-negative-bed $tn_bed_name --old-sample $sample --new-sample GOLDSTANDARD_SAMPLE";#--true-negative-size $tn_bed_size";
+    if($gold_sample) {
+        $cmd .= " --gold-sample $gold_sample";
+    }
     print STDERR $cmd,"\n";
     my @output = `$cmd`;
     chomp($output[0]);
