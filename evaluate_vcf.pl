@@ -57,7 +57,7 @@ my ($basename, $path, $suffix) = fileparse($vcf, ".vcf.gz");
 
 restrict("$basename$suffix", $roi, "$basename.roi.vcf.gz");
 restrict($gold_vcf, $roi, "$gold_vcf.roi.vcf.gz");
-restrict($tn_bed, $roi, "$tn_bed.roi.bed.gz");
+restrict_bed($tn_bed, $roi, "$tn_bed.roi.bed.gz");
 
 restrict_vcf_to_sample("$basename.roi.vcf.gz", $old_sample, "$basename.roi.$old_sample.vcf.gz");
 
@@ -122,18 +122,19 @@ sub restrict_vcf_to_sample {
     execute("tabix -p vcf $output_file");
 }
 
+sub restrict_bed {
+    my ($input_file, $roi_file, $output_file) = @_;
+    my $cmd = "zcat $input_file | $BEDTOOLS intersect -a stdin -b $roi_file $bgzip_pipe_cmd > $output_file";
+    execute($cmd); #this is not very safe. I would really prefer to use Genome or IPC::Run
+}
+
 
 sub restrict {
     my ($input_file, $roi_file, $output_file)  = @_;
 
     #TODO Check on what happens with headers if $input_file has a header
     #TODO Check on what happens to VCF entries that span a boundary of the ROI (e.g. deletion)
-    my $replace_cmd = "";
-    #if($old_sample && $new_sample) {
-    #    $replace_cmd = "| perl -pe 's/$old_sample/$new_sample/g'";
-    #}
-    execute("zgrep '^#' $input_file $replace_cmd > /tmp/header");
-    my $cmd = "zcat $input_file | $BEDTOOLS intersect -a stdin -b $roi_file | cat /tmp/header - $bgzip_pipe_cmd > $output_file";
+    my $cmd = "zcat $input_file | $BEDTOOLS intersect -header -a stdin -b $roi_file $bgzip_pipe_cmd > $output_file";
     execute($cmd); #this is not very safe. I would really prefer to use Genome or IPC::Run
     execute("tabix -p vcf $output_file");
 }
