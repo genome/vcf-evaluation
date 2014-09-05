@@ -34,15 +34,17 @@ my $tn_bed;
 my $old_sample;
 my $new_sample;
 my $tn_bed_size;
+my $gold_sample;
 my $help;
 
 GetOptions(
     'vcf=s' => \$vcf,
-    'roi=s' => \$roi,
-    'gold-vcf=s' => \$gold_vcf,
-    'true-negative-bed=s' => \$tn_bed,
     'old-sample=s' => \$old_sample,
     'new-sample=s' => \$new_sample,
+    'roi=s' => \$roi,
+    'gold-vcf=s' => \$gold_vcf,
+    'gold-sample=s' => \$gold_sample,
+    'true-negative-bed=s' => \$tn_bed,
     'true-negative-size=i' => \$tn_bed_size,
     'help!' => \$help,
 ) or print_help();
@@ -60,7 +62,7 @@ allelic_primitives("$basename.roi.pass_only.vcf.gz", "$basename.roi.pass_only.al
 normalize_vcf("$basename.roi.pass_only.allelic_primitives.vcf.gz", $REFERENCE, "$basename.roi.pass_only.allelic_primitives.normalized.vcf.gz");
 sort_file("$basename.roi.pass_only.allelic_primitives.normalized.vcf.gz","$basename.roi.pass_only.allelic_primitives.normalized.sorted.vcf.gz");
 restrict("$basename.roi.pass_only.allelic_primitives.normalized.sorted.vcf.gz", $roi, "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz");
-compare_partial("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$gold_vcf.roi.vcf.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared");
+compare_partial("$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$gold_vcf.roi.vcf.gz", "$basename.roi.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared", $gold_sample, $old_sample, "NA12878");
 
 #NOTE We will not calculate the size of the roi here and instead will assume it is calculated elsewhere if needed.
 $tn_bed_size = bed_size("$tn_bed.roi.bed.gz") unless defined $tn_bed_size;
@@ -116,9 +118,9 @@ sub restrict {
     #TODO Check on what happens with headers if $input_file has a header
     #TODO Check on what happens to VCF entries that span a boundary of the ROI (e.g. deletion)
     my $replace_cmd = "";
-    if($old_sample && $new_sample) {
-        $replace_cmd = "| perl -pe 's/$old_sample/$new_sample/g'";
-    }
+    #if($old_sample && $new_sample) {
+    #    $replace_cmd = "| perl -pe 's/$old_sample/$new_sample/g'";
+    #}
     execute("zgrep '^#' $input_file $replace_cmd > /tmp/header");
     my $cmd = "zcat $input_file | $BEDTOOLS intersect -a stdin -b $roi_file | cat /tmp/header - $bgzip_pipe_cmd > $output_file";
     execute($cmd); #this is not very safe. I would really prefer to use Genome or IPC::Run
@@ -152,8 +154,17 @@ sub compare {
 }
 
 sub compare_partial {
-    my ($input_file, $gold_file, $output_file) = @_;
-    execute("$JOINX vcf-compare $input_file $gold_file -s NA12878 > $output_file");
+    my ($input_file, $gold_file, $output_file, $gold_sample, $eval_sample, $new_sample) = @_;
+    my $rename_option = "";
+    if($new_sample) {
+        if($gold_sample) {
+            $rename_option .= " -R $gold_sample=$new_sample";
+        }
+        if($eval_sample) {
+            $rename_option .= " -R $eval_sample=$new_sample";
+        }
+    }
+    execute("$JOINX vcf-compare $rename_option $input_file $gold_file -s $new_sample > $output_file");
 }
 
 sub true_positives {
