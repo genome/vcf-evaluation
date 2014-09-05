@@ -8,6 +8,7 @@ use lib "/gscmnt/gc3042/cle_validation/src/genome/lib/perl/";
 use File::Spec;
 use Getopt::Long;
 use Cwd;
+use IO::File;
 
 #inputs: reference, tn bed, indel variant vcf, snv variant vcf, model group, roi
 my $config;
@@ -17,7 +18,6 @@ my $gold_indel_vcf;
 my $tn_bed;
 my $help;
 my $gold_sample;
-my $eval_sample;
 
 GetOptions(
     'config=s' => \$config,
@@ -26,7 +26,6 @@ GetOptions(
     'gold-indel-vcf=s' => \$gold_indel_vcf,
     'true-negative-bed=s' => \$tn_bed,
     'gold-sample=s' => \$gold_sample,
-    'eval-sample=s' => \$eval_sample,
     'help!' => \$help,
 ) or print_help();
 print_help() if $help;
@@ -73,9 +72,9 @@ while(my $line = $fh->getline) {
     my $gold_file_name = filename($gold_file);
     symlink $gold_file, $gold_file_name;
 
-    $tn_bed_size = bed_size($tn_bed_name . ".roi.bed.gz") unless defined $tn_bed_size;
+    #$tn_bed_size = bed_size($tn_bed_name . ".roi.bed.gz") unless defined $tn_bed_size;
 
-    my $cmd = "perl -I ~dlarson/src/evaluate/ ~dlarson/src/evaluate/evaluate_vcf.pl --vcf $file_name --roi $roi_name --gold-vcf $gold_file_name --true-negative-bed $tn_bed_name --old-sample $eval_sample --new-sample NA12878 --true-negative-size $tn_bed_size";
+    my $cmd = "perl -I ~dlarson/src/evaluate/ ~dlarson/src/evaluate/evaluate_vcf.pl --vcf $file_name --roi $roi_name --gold-vcf $gold_file_name --true-negative-bed $tn_bed_name --old-sample $sample --new-sample NA12878";#--true-negative-size $tn_bed_size";
     print STDERR $cmd,"\n";
     my @output = `$cmd`;
     chomp($output[0]);
@@ -110,8 +109,8 @@ sub bed_size {
 
 sub validate_type {
     my $type = shift;
-    if($type ne 'snv' && $type ne 'indel') {
-        die "Invalid type: $type. Only snv and indel are supported as valid types.\n";
+    if($type ne 'snvs' && $type ne 'indels') {
+        die "Invalid type: $type. Only snvs and indels are supported as valid types.\n";
     }
     return 1;   #return true
 }
