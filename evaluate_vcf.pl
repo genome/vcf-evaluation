@@ -98,7 +98,7 @@ sub print_help {
 
 sub allelic_primitives {
     my ($input_file, $output_file) = @_;
-    execute("$VCFLIB/vcfallelicprimitives -t ALLELICPRIMITIVE $input_file | $VCFLIB/vcffixup - |  $VCFLIB/vcffilter -f 'AC > 0' $bgzip_pipe_cmd > $output_file");
+    execute("$VCFLIB/vcfallelicprimitives -t ALLELICPRIMITIVE $input_file | $VCFLIB/vcffixup - | $VCFLIB/vcffilter -f 'AC > 0' $bgzip_pipe_cmd > $output_file");
     execute("tabix -p vcf $output_file");
 }
 
@@ -142,7 +142,11 @@ sub pass_only {
     #check for FT tag
     my @FT = `zgrep -m1 '##FORMAT=<ID=FT,' $input_file`;
     if(@FT) {
-        execute("$VCFLIB/vcffilter -g 'FT = PASS | FT = .' $input_file | perl -e 'while(<>) {\@F = split /\t/; if(/^#/ or not grep { \$_ eq q{.} } splice(\@F,9)) { print} }'  $bgzip_pipe_cmd > $output_file");
+        #per genotype filters in VCFLIB result in an empty . entry when things fail for that sample.
+        #info filters do not require this
+        # it is important not remove extra alleles prematurely as vcflib doesn't respect per-alt or per-ref info fields when culling
+        # the vcffixup in allelic primitives will fix these later
+        execute("$VCFLIB/vcffilter -g 'FT = PASS | FT = .' $input_file $bgzip_pipe_cmd > $output_file");
     }
     else {
         execute("zcat $input_file | perl -ape '\$_=q{} unless(\$F[6] eq q{PASS} || \$F[6] eq q{.} || \$F[0] =~ /^#/)' $bgzip_pipe_cmd > $output_file");
@@ -233,6 +237,12 @@ sub execute {
 
     print STDERR $cmd,"\n";
     if(!$DEBUG) {
-        print `$cmd`;
+        my $rvalue = `$cmd`;
+        unless(defined $rvalue) {
+            die "Error running $cmd\n";
+        }
+        else {
+            print $rvalue;
+        }
     }
 }
