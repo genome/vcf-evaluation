@@ -18,6 +18,7 @@ my $gold_indel_vcf;
 my $tn_bed;
 my $help;
 my $gold_sample;
+my $expression;
 
 GetOptions(
     'config=s' => \$config,
@@ -26,6 +27,7 @@ GetOptions(
     'gold-indel-vcf=s' => \$gold_indel_vcf,
     'true-negative-bed=s' => \$tn_bed,
     'gold-sample=s' => \$gold_sample,
+    'pass-filter-expression=s' => \$expression,
     'help!' => \$help,
 ) or print_help();
 print_help() if $help;
@@ -77,6 +79,9 @@ while(my $line = $fh->getline) {
     my $cmd = "perl -I ~dlarson/src/evaluate/ ~dlarson/src/evaluate/evaluate_vcf.pl --vcf $file_name --roi $roi_name --gold-vcf $gold_file_name --true-negative-bed $tn_bed_name --old-sample $sample --new-sample GOLDSTANDARD_SAMPLE";#--true-negative-size $tn_bed_size";
     if($gold_sample) {
         $cmd .= " --gold-sample $gold_sample";
+    }
+    if(defined $expression) {
+        $cmd .= qq{ --pass-only-expression "$expression"};
     }
     print STDERR $cmd,"\n";
     my @output = `$cmd`;

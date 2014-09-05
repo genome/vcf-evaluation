@@ -147,7 +147,6 @@ sub pass_only {
     else {
         execute("zcat $input_file | perl -ape '\$_=q{} unless(\$F[6] eq q{PASS} || \$F[6] eq q{.} || \$F[0] =~ /^#/)' $bgzip_pipe_cmd > $output_file");
     }
-}
     execute("tabix -p vcf $output_file");
 }
 
