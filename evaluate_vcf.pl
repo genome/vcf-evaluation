@@ -35,6 +35,7 @@ my $old_sample;
 my $new_sample;
 my $tn_bed_size;
 my $gold_sample;
+my $pass_only_exp = q{-g 'FT = PASS | FT = .'};
 my $help;
 
 GetOptions(
@@ -46,6 +47,7 @@ GetOptions(
     'gold-sample=s' => \$gold_sample,
     'true-negative-bed=s' => \$tn_bed,
     'true-negative-size=i' => \$tn_bed_size,
+    'pass-only-expression=s' => \$pass_only_exp,
     'help!' => \$help,
 ) or print_help();
 print_help() if $help;
@@ -59,7 +61,7 @@ restrict($tn_bed, $roi, "$tn_bed.roi.bed.gz");
 
 restrict_vcf_to_sample("$basename.roi.vcf.gz", $old_sample, "$basename.roi.$old_sample.vcf.gz");
 
-pass_only("$basename.roi.$old_sample.vcf.gz", "$basename.roi.$old_sample.pass_only.vcf.gz");
+pass_only("$basename.roi.$old_sample.vcf.gz", "$basename.roi.$old_sample.pass_only.vcf.gz", $pass_only_exp);
 allelic_primitives("$basename.roi.$old_sample.pass_only.vcf.gz", "$basename.roi.$old_sample.pass_only.allelic_primitives.vcf.gz");
 normalize_vcf("$basename.roi.$old_sample.pass_only.allelic_primitives.vcf.gz", $REFERENCE, "$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.vcf.gz");
 sort_file("$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.vcf.gz","$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.sorted.vcf.gz");
@@ -137,19 +139,25 @@ sub restrict {
 }
 
 sub pass_only {
-    my ($input_file, $output_file) = @_;
+    my ($input_file, $output_file, $expression) = @_;
 
-    #check for FT tag
-    my @FT = `zgrep -m1 '##FORMAT=<ID=FT,' $input_file`;
-    if(@FT) {
-        #per genotype filters in VCFLIB result in an empty . entry when things fail for that sample.
-        #info filters do not require this
-        # it is important not remove extra alleles prematurely as vcflib doesn't respect per-alt or per-ref info fields when culling
-        # the vcffixup in allelic primitives will fix these later
-        execute("$VCFLIB/vcffilter -g 'FT = PASS | FT = .' $input_file $bgzip_pipe_cmd > $output_file");
+    if($expression) {
+        execute("$VCFLIB/vcffilter $expression $input_file $bgzip_pipe_cmd > $output_file");
     }
     else {
-        execute("zcat $input_file | perl -ape '\$_=q{} unless(\$F[6] eq q{PASS} || \$F[6] eq q{.} || \$F[0] =~ /^#/)' $bgzip_pipe_cmd > $output_file");
+
+        #check for FT tag
+        my @FT = `zgrep -m1 '##FORMAT=<ID=FT,' $input_file`;
+        if(@FT) {
+            #per genotype filters in VCFLIB result in an empty . entry when things fail for that sample.
+            #info filters do not require this
+            # it is important not remove extra alleles prematurely as vcflib doesn't respect per-alt or per-ref info fields when culling
+            # the vcffixup in allelic primitives will fix these later
+            execute("$VCFLIB/vcffilter -g 'FT = PASS | FT = .' $input_file $bgzip_pipe_cmd > $output_file");
+        }
+        else {
+            execute("zcat $input_file | perl -ape '\$_=q{} unless(\$F[6] eq q{PASS} || \$F[6] eq q{.} || \$F[0] =~ /^#/)' $bgzip_pipe_cmd > $output_file");
+        }
     }
     execute("tabix -p vcf $output_file");
 }
