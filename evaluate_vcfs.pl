@@ -37,7 +37,7 @@ $tn_bed = Cwd::abs_path($tn_bed);
 $config = Cwd::abs_path($config);
 
 my $tn_bed_size;
-print join("\t", qw( Name Id VarType True_Positive_Found_Exact Total_True_Positive_Exact Sensitivity_Exact  True_Positive_Found_Partial Total_True_Positive_Partial Sensitivity_Partial False_Positive_Exact False_Positive_Partial True_Negatives Exact_Specificity Partial_Specificity Exact_PPV Partial_PPV VCF_Lines_Overlapping_TN )),"\n";
+print join("\t", qw( Name Id VarType True_Positive_Found_Exact Total_True_Positive_Exact Sensitivity_Exact  True_Positive_Found_Partial Total_True_Positive_Partial Sensitivity_Partial False_Positive_Exact False_Positive_Partial True_Negatives Exact_Specificity Partial_Specificity Exact_PPV Partial_PPV VCF_Lines_Overlapping_TN Lines_Specificity_in_TN_Only)),"\n";
 
 #will now read in a config file
 #name\tid\tpath\ttype\tsample\n
