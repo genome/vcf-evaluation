@@ -64,7 +64,7 @@ allelic_primitives("$basename.roi.$old_sample.pass_only.vcf.gz", "$basename.roi.
 normalize_vcf("$basename.roi.$old_sample.pass_only.allelic_primitives.vcf.gz", $REFERENCE, "$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.vcf.gz");
 sort_file("$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.vcf.gz","$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.sorted.vcf.gz");
 restrict("$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.sorted.vcf.gz", $roi, "$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz");
-compare_partial("$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", "$gold_vcf.roi.vcf.gz", "$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared", $gold_sample, $old_sample, $new_sample);
+compare_partial("$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", ".", "$gold_vcf.roi.vcf.gz", "$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared", $gold_sample, $old_sample, $new_sample);
 
 #NOTE We will not calculate the size of the roi here and instead will assume it is calculated elsewhere if needed.
 $tn_bed_size = bed_size("$tn_bed.roi.bed.gz") unless defined $tn_bed_size;
@@ -163,7 +163,7 @@ sub compare {
 }
 
 sub compare_partial {
-    my ($input_file, $gold_file, $output_file, $gold_sample, $eval_sample, $new_sample) = @_;
+    my ($input_file, $variant_directory, $gold_file, $output_file, $gold_sample, $eval_sample, $new_sample) = @_;
     my $rename_option = "";
     if($new_sample) {
         if($gold_sample) {
@@ -173,7 +173,7 @@ sub compare_partial {
             $rename_option .= " -R $eval_sample=$new_sample";
         }
     }
-    execute("$JOINX vcf-compare $rename_option $input_file $gold_file -s $new_sample > $output_file");
+    execute("$JOINX vcf-compare $rename_option -d $variant_directory $input_file $gold_file -s $new_sample > $output_file");
 }
 
 sub true_positives {
