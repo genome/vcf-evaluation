@@ -7,6 +7,7 @@ use IO::File;
 use Getopt::Long;
 use File::Basename;
 use File::Spec;
+use File::Temp;
 use VcfCompare;
 
 my $JOINX = "~dlarson/src/joinx/build/bin/joinx";
@@ -133,12 +134,45 @@ sub restrict_bed {
 
 
 sub restrict {
-    my ($input_file, $roi_file, $output_file)  = @_;
+    my ($input_file, $roi_file, $output_file, $clean_indels)  = @_;
 
     #TODO Check on what happens with headers if $input_file has a header
     #TODO Check on what happens to VCF entries that span a boundary of the ROI (e.g. deletion)
-    my $cmd = "zcat $input_file | $BEDTOOLS intersect -header -a stdin -b $roi_file $bgzip_pipe_cmd > $output_file";
-    execute($cmd); #this is not very safe. I would really prefer to use Genome or IPC::Run
+    #NOTE bedtools intersect and vcflib vcfintersect both only look at the reference coordinate.
+    #this means that deletions where the variant is outside of the ROI are pulled in
+    #we don't want to do this so we will clean it up.
+    if($clean_indels) {
+        my ($tfh, $tempfilename) = tempfile();
+        my $cmd = "zcat $input_file | $BEDTOOLS intersect -f 1 -header -a stdin -b $roi_file > $tempfilename";
+        execute($cmd); #this is not very safe. I would really prefer to use Genome or IPC::Run
+        my %bed_ends;
+        my $fh = IO::File->new($roi_file) or die "Unable to open BED file $roi_file for removal of bad indel lines\n";
+        while(my $bedline = $fh->getline) {
+            chomp $bedline;
+            my ($chr, $start, $stop) = split "\t", $bedline;
+            $bed_ends{"$chr\t$stop"} = 1;
+        }
+        $fh->close;
+
+        my $ofh = IO::File->new("| bgzip -c $output_file","w") or die "Unable to open output bgzip pipe\n";
+        while(my $vcfline = $tfh->getline) {
+            my ($chr, $pos) = split "\t", $vcfline;
+            if($vcfline =~ /^#/ || exists($bed_ends{"$chr\t$pos"})) {
+                print $ofh $vcfline;
+            }
+        }
+        $ofh->close;
+        $tfh->close;
+    }
+    else {
+        my $cmd = "zcat $input_file | $BEDTOOLS intersect -f 1 -header -a stdin -b $roi_file $bgzip_pipe_cmd > $output_file";
+        execute($cmd); #this is not very safe. I would really prefer to use Genome or IPC::Run
+    }
+    execute("tabix -p vcf $output_file");
+}
+
+
+
     execute("tabix -p vcf $output_file");
 }
 
