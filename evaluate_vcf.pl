@@ -52,7 +52,10 @@ GetOptions(
 ) or print_help();
 print_help() if $help;
 my $bgzip_pipe_cmd = "| bgzip -c ";
-
+if($vcf =~ /\.vcf$/) {
+    execute("perl -pe 's/CAF=.*?[;      ]//' $vcf | bgzip -c > $vcf.gz");
+    $vcf .= ".gz";
+}
 my ($basename, $path, $suffix) = fileparse($vcf, ".vcf.gz");
 
 restrict("$basename$suffix", $roi, "$basename.roi.vcf.gz");
