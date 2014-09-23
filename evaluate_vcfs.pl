@@ -83,6 +83,9 @@ while(my $line = $fh->getline) {
     if(defined $expression) {
         $cmd .= qq{ --pass-only-expression "$expression"};
     }
+    if($variant_type eq 'indels') {
+        $cmd .= " --clean-indels";
+    }
     print STDERR $cmd,"\n";
     my @output = `$cmd`;
     chomp($output[0]);

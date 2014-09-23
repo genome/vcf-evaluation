@@ -7,7 +7,7 @@ use IO::File;
 use Getopt::Long;
 use File::Basename;
 use File::Spec;
-use File::Temp;
+use File::Temp qw( tempfile );
 use VcfCompare;
 
 my $JOINX = "~dlarson/src/joinx/build/bin/joinx";
@@ -36,6 +36,7 @@ my $old_sample;
 my $new_sample;
 my $tn_bed_size;
 my $gold_sample;
+my $clean_indels = 0;
 my $pass_only_exp = q{-g 'FT = PASS | FT = .'};
 my $help;
 
@@ -49,10 +50,12 @@ GetOptions(
     'true-negative-bed=s' => \$tn_bed,
     'true-negative-size=i' => \$tn_bed_size,
     'pass-only-expression=s' => \$pass_only_exp,
+    'clean-indels' => \$clean_indels,
     'help!' => \$help,
 ) or print_help();
 print_help() if $help;
 my $bgzip_pipe_cmd = "| bgzip -c ";
+
 if($vcf =~ /\.vcf$/) {
     execute("perl -pe 's/CAF=.*?[;      ]//' $vcf | bgzip -c > $vcf.gz");
     $vcf .= ".gz";
@@ -60,7 +63,7 @@ if($vcf =~ /\.vcf$/) {
 my ($basename, $path, $suffix) = fileparse($vcf, ".vcf.gz");
 
 restrict("$basename$suffix", $roi, "$basename.roi.vcf.gz");
-restrict($gold_vcf, $roi, "$gold_vcf.roi.vcf.gz");
+restrict($gold_vcf, $roi, "$gold_vcf.roi.vcf.gz", $clean_indels); #this should be cleaned here because, presumably, allelic primitives has already been run. 
 restrict_bed($tn_bed, $roi, "$tn_bed.roi.bed.gz");
 
 restrict_vcf_to_sample("$basename.roi.vcf.gz", $old_sample, "$basename.roi.$old_sample.vcf.gz");
@@ -69,7 +72,7 @@ pass_only("$basename.roi.$old_sample.vcf.gz", "$basename.roi.$old_sample.pass_on
 allelic_primitives("$basename.roi.$old_sample.pass_only.vcf.gz", "$basename.roi.$old_sample.pass_only.allelic_primitives.vcf.gz");
 normalize_vcf("$basename.roi.$old_sample.pass_only.allelic_primitives.vcf.gz", $REFERENCE, "$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.vcf.gz");
 sort_file("$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.vcf.gz","$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.sorted.vcf.gz");
-restrict("$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.sorted.vcf.gz", $roi, "$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz");
+restrict("$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.sorted.vcf.gz", $roi, "$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", $clean_indels); #we will clean indels here in case allelic primitives and indel normalization have moved things to the edges of ROIs and need to be cleaned
 compare_partial("$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz", ".", "$gold_vcf.roi.vcf.gz", "$basename.roi.$old_sample.pass_only.allelic_primitives.normalized.sorted.reroi.vcf.gz.compared", $gold_sample, $old_sample, $new_sample);
 
 #NOTE We will not calculate the size of the roi here and instead will assume it is calculated elsewhere if needed.
@@ -143,7 +146,7 @@ sub restrict {
     #we don't want to do this so we will clean it up.
     if($clean_indels) {
         my ($tfh, $tempfilename) = tempfile();
-        my $cmd = "zcat $input_file | $BEDTOOLS intersect -f 1 -header -a stdin -b $roi_file > $tempfilename";
+        my $cmd = "zcat $input_file | $BEDTOOLS intersect -header -a stdin -b $roi_file > $tempfilename";
         execute($cmd); #this is not very safe. I would really prefer to use Genome or IPC::Run
         my %bed_ends;
         my $fh = IO::File->new($roi_file) or die "Unable to open BED file $roi_file for removal of bad indel lines\n";
@@ -153,11 +156,11 @@ sub restrict {
             $bed_ends{"$chr\t$stop"} = 1;
         }
         $fh->close;
-
-        my $ofh = IO::File->new("| bgzip -c $output_file","w") or die "Unable to open output bgzip pipe\n";
+        $tfh->flush;
+        my $ofh = IO::File->new("| bgzip -c > $output_file") or die "Unable to open output bgzip pipe\n";
         while(my $vcfline = $tfh->getline) {
             my ($chr, $pos) = split "\t", $vcfline;
-            if($vcfline =~ /^#/ || exists($bed_ends{"$chr\t$pos"})) {
+            if($vcfline =~ /^#/ || !exists($bed_ends{"$chr\t$pos"})) {
                 print $ofh $vcfline;
             }
         }
@@ -165,14 +168,9 @@ sub restrict {
         $tfh->close;
     }
     else {
-        my $cmd = "zcat $input_file | $BEDTOOLS intersect -f 1 -header -a stdin -b $roi_file $bgzip_pipe_cmd > $output_file";
+        my $cmd = "zcat $input_file | $BEDTOOLS intersect -header -a stdin -b $roi_file $bgzip_pipe_cmd > $output_file";
         execute($cmd); #this is not very safe. I would really prefer to use Genome or IPC::Run
     }
-    execute("tabix -p vcf $output_file");
-}
-
-
-
     execute("tabix -p vcf $output_file");
 }
 
