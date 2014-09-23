@@ -10,7 +10,7 @@ use File::Spec;
 use File::Temp qw( tempfile );
 use VcfCompare;
 
-my $JOINX = "~dlarson/src/joinx/build/bin/joinx";
+my $JOINX = "/gscmnt/gc3042/cle_validation/src/joinx/build/bin/joinx";
 my $BEDTOOLS = "/gscmnt/gc3042/cle_validation/src/bedtools2-2.19.1/bin/bedtools";
 my $VCFLIB= "/gscmnt/gc3042/cle_validation/src/vcflib/bin";
 my $REFERENCE = "/gscmnt/gc3042/cle_validation/reference/all_sequences.fa";
