@@ -10,6 +10,7 @@ use Getopt::Long;
 use Cwd;
 use IO::File;
 
+my $EVAL_SCRIPT_LOCATION = "/gscmnt/gc3042/cle_validation/src/evaluation/";
 #inputs: reference, tn bed, indel variant vcf, snv variant vcf, model group, roi
 my $config;
 my $roi;
@@ -76,7 +77,7 @@ while(my $line = $fh->getline) {
 
     #$tn_bed_size = bed_size($tn_bed_name . ".roi.bed.gz") unless defined $tn_bed_size;
 
-    my $cmd = "perl -I ~dlarson/src/evaluate/ ~dlarson/src/evaluate/evaluate_vcf.pl --vcf $file_name --roi $roi_name --gold-vcf $gold_file_name --true-negative-bed $tn_bed_name --old-sample $sample --new-sample GOLDSTANDARD_SAMPLE";#--true-negative-size $tn_bed_size";
+    my $cmd = "perl -I $EVAL_SCRIPT_LOCATION $EVAL_SCRIPT_LOCATION/evaluate_vcf.pl --vcf $file_name --roi $roi_name --gold-vcf $gold_file_name --true-negative-bed $tn_bed_name --old-sample $sample --new-sample GOLDSTANDARD_SAMPLE";#--true-negative-size $tn_bed_size";
     if($gold_sample) {
         $cmd .= " --gold-sample $gold_sample";
     }
