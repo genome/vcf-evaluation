@@ -83,20 +83,20 @@ my %results = true_positives("$basename.roi.$old_sample.pass_only.allelic_primit
 print join("\t", 
     $results{true_positive_exact}, 
     $results{true_positive_exact} + $results{false_negative_exact},
-    $results{true_positive_exact} / ($results{true_positive_exact} + $results{false_negative_exact}),
+    ($results{true_positive_exact} + $results{false_negative_exact}) ? $results{true_positive_exact} / ($results{true_positive_exact} + $results{false_negative_exact}) : 'nan',
     $results{true_positive_partial},
     $results{true_positive_partial} + $results{false_negative_partial},
-    $results{true_positive_partial} / ($results{true_positive_partial} + $results{false_negative_partial}),
+    ($results{true_positive_partial} + $results{false_negative_partial}) ? $results{true_positive_partial} / ($results{true_positive_partial} + $results{false_negative_partial}) : 'nan',
     $results{false_positive_exact},
     $results{false_positive_partial},
     $tn_bed_size,
     #exact specificity, these are not strictly accurate as the tn_bed may be significantly smaller than the target space ROI
-    ($tn_bed_size - $results{false_positive_exact}) / $tn_bed_size,
-    ($tn_bed_size - $results{false_positive_partial}) / $tn_bed_size,
-    $results{true_positive_exact} / ($results{false_positive_exact} + $results{true_positive_exact}),
-    $results{true_positive_partial} / ($results{false_positive_partial} + $results{true_positive_partial}),
+    $tn_bed_size ? ($tn_bed_size - $results{false_positive_exact}) / $tn_bed_size : 'nan',
+    $tn_bed_size ? ($tn_bed_size - $results{false_positive_partial}) / $tn_bed_size : 'nan',
+    ($results{false_positive_exact} + $results{true_positive_exact}) ? $results{true_positive_exact} / ($results{false_positive_exact} + $results{true_positive_exact}) : 'nan',
+    ($results{false_positive_partial} + $results{true_positive_partial}) ? $results{true_positive_partial} / ($results{false_positive_partial} + $results{true_positive_partial}) : 'nan',
     $false_positives_in_roi,
-    ($tn_bed_size - $false_positives_in_roi) / $tn_bed_size, #this is more accurate than the other specificity measures, but doesn't take partial into account
+    $tn_bed_size ? ($tn_bed_size - $false_positives_in_roi) / $tn_bed_size : 'nan', #this is more accurate than the other specificity measures, but doesn't take partial into account
 ), "\n"; 
 
 
@@ -107,32 +107,57 @@ sub print_help {
 
 sub allelic_primitives {
     my ($input_file, $output_file) = @_;
-    execute("$VCFLIB/vcfallelicprimitives -t ALLELICPRIMITIVE $input_file | $VCFLIB/vcffixup - | $VCFLIB/vcffilter -f 'AC > 0' $bgzip_pipe_cmd > $output_file");
+    if(count($input_file)) {
+        execute("$VCFLIB/vcfallelicprimitives -t ALLELICPRIMITIVE $input_file | $VCFLIB/vcffixup - | $VCFLIB/vcffilter -f 'AC > 0' $bgzip_pipe_cmd > $output_file");
+    }
+    else {
+        execute("cp $input_file $output_file");
+    }
     execute("tabix -p vcf $output_file");
 }
 
 sub sort_file {
     my ($input_file, $output_file) = @_;
-    execute("$JOINX sort $input_file $bgzip_pipe_cmd > $output_file");
+    if(count($input_file)) {
+        execute("$JOINX sort $input_file $bgzip_pipe_cmd > $output_file");
+    }
+    else {
+        execute("cp $input_file $output_file");
+    }
     execute("tabix -p vcf $output_file");
 }
 
 sub normalize_vcf {
     my ($input_file, $reference, $output_file) = @_;
-    execute("$JOINX vcf-normalize-indels -f $reference $input_file $bgzip_pipe_cmd > $output_file");
+    if(count($input_file)) {
+        execute("$JOINX vcf-normalize-indels -f $reference $input_file $bgzip_pipe_cmd > $output_file");
+    }
+    else {
+        execute("cp $input_file $output_file");
+    }
     execute("tabix -p vcf $output_file");
 }
 
 sub restrict_vcf_to_sample {
     my ($input_file, $sample, $output_file) = @_;
-    execute("$VCFLIB/vcfkeepsamples $input_file $sample $bgzip_pipe_cmd > $output_file");
+    if(count($input_file)) {
+        execute("$VCFLIB/vcfkeepsamples $input_file $sample $bgzip_pipe_cmd > $output_file");
+    }
+    else {
+        execute("cp $input_file $output_file");
+    }
     execute("tabix -p vcf $output_file");
 }
 
 sub restrict_bed {
     my ($input_file, $roi_file, $output_file) = @_;
-    my $cmd = "zcat $input_file | $BEDTOOLS intersect -a stdin -b $roi_file $bgzip_pipe_cmd > $output_file";
-    execute($cmd); #this is not very safe. I would really prefer to use Genome or IPC::Run
+    if(count($input_file)) {
+        my $cmd = "zcat $input_file | $BEDTOOLS intersect -a stdin -b $roi_file $bgzip_pipe_cmd > $output_file";
+        execute($cmd); #this is not very safe. I would really prefer to use Genome or IPC::Run
+    }
+    else {
+        execute("cp $input_file $output_file");
+    }
 }
 
 
@@ -144,44 +169,54 @@ sub restrict {
     #NOTE bedtools intersect and vcflib vcfintersect both only look at the reference coordinate.
     #this means that deletions where the variant is outside of the ROI are pulled in
     #we don't want to do this so we will clean it up.
-    if($clean_indels) {
-        my ($tfh, $tempfilename) = tempfile();
-        my $cmd = "zcat $input_file | $BEDTOOLS intersect -header -a stdin -b $roi_file > $tempfilename";
-        execute($cmd); #this is not very safe. I would really prefer to use Genome or IPC::Run
-        my %bed_ends;
-        my $fh = IO::File->new($roi_file) or die "Unable to open BED file $roi_file for removal of bad indel lines\n";
-        while(my $bedline = $fh->getline) {
-            chomp $bedline;
-            my ($chr, $start, $stop) = split "\t", $bedline;
-            $bed_ends{"$chr\t$stop"} = 1;
-        }
-        $fh->close;
-        $tfh->flush;
-        my $ofh = IO::File->new("| bgzip -c > $output_file") or die "Unable to open output bgzip pipe\n";
-        while(my $vcfline = $tfh->getline) {
-            my ($chr, $pos) = split "\t", $vcfline;
-            if($vcfline =~ /^#/ || !exists($bed_ends{"$chr\t$pos"})) {
-                print $ofh $vcfline;
+    if(count($input_file)) {
+        if($clean_indels) {
+            my ($tfh, $tempfilename) = tempfile();
+            my $cmd = "zcat $input_file | $BEDTOOLS intersect -header -a stdin -b $roi_file > $tempfilename";
+            execute($cmd); #this is not very safe. I would really prefer to use Genome or IPC::Run
+            my %bed_ends;
+            my $fh = IO::File->new($roi_file) or die "Unable to open BED file $roi_file for removal of bad indel lines\n";
+            while(my $bedline = $fh->getline) {
+                chomp $bedline;
+                my ($chr, $start, $stop) = split "\t", $bedline;
+                $bed_ends{"$chr\t$stop"} = 1;
             }
+            $fh->close;
+            $tfh->flush;
+            my $ofh = IO::File->new("| bgzip -c > $output_file") or die "Unable to open output bgzip pipe\n";
+            while(my $vcfline = $tfh->getline) {
+                my ($chr, $pos) = split "\t", $vcfline;
+                if($vcfline =~ /^#/ || !exists($bed_ends{"$chr\t$pos"})) {
+                    print $ofh $vcfline;
+                }
+            }
+            $ofh->close;
+            $tfh->close;
         }
-        $ofh->close;
-        $tfh->close;
+        else {
+            my $cmd = "zcat $input_file | $BEDTOOLS intersect -header -a stdin -b $roi_file $bgzip_pipe_cmd > $output_file";
+            execute($cmd); #this is not very safe. I would really prefer to use Genome or IPC::Run
+        }
     }
     else {
-        my $cmd = "zcat $input_file | $BEDTOOLS intersect -header -a stdin -b $roi_file $bgzip_pipe_cmd > $output_file";
-        execute($cmd); #this is not very safe. I would really prefer to use Genome or IPC::Run
+        execute("cp $input_file $output_file");
     }
     execute("tabix -p vcf $output_file");
 }
 
 sub pass_only {
     my ($input_file, $output_file, $expression) = @_;
+    if(count($input_file)) {
 
-    if($expression) {
-        execute("$VCFLIB/vcffilter $expression $input_file $bgzip_pipe_cmd > $output_file");
+        if($expression) {
+            execute("$VCFLIB/vcffilter $expression $input_file $bgzip_pipe_cmd > $output_file");
+        }
+        else {
+            execute("zcat $input_file | perl -ape '\$_=q{} unless(\$F[6] eq q{PASS} || \$F[6] eq q{.} || \$F[0] =~ /^#/)' $bgzip_pipe_cmd > $output_file");
+        }
     }
     else {
-        execute("zcat $input_file | perl -ape '\$_=q{} unless(\$F[6] eq q{PASS} || \$F[6] eq q{.} || \$F[0] =~ /^#/)' $bgzip_pipe_cmd > $output_file");
+        execute("cp $input_file $output_file");
     }
     execute("tabix -p vcf $output_file");
 }
@@ -233,7 +268,12 @@ sub true_positives {
 
 sub number_within_roi {
     my ($input_file, $roi, $output_file) = @_;
-    execute("zcat $input_file | $BEDTOOLS intersect -header -a stdin -b $roi $bgzip_pipe_cmd > $output_file");
+    if(count($input_file)) {
+        execute("zcat $input_file | $BEDTOOLS intersect -header -a stdin -b $roi $bgzip_pipe_cmd > $output_file");
+    }
+    else {
+        execute("cp $input_file $output_file");
+    }
     execute("tabix -p vcf $output_file");
     return count($output_file);
 }
