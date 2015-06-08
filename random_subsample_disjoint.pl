@@ -39,8 +39,8 @@ my ($evaluated_vcf, $standard_vcf) = find_vcfs($evaluation_directory);
 
 my $subsample_eval_vcf_output = "$output_directory/evaluated_only.vcf.gz";
 my $subsample_std_vcf_output = "$output_directory/standard_only.vcf.gz";
-subsample_vcf(':1,0:',$evaluated_vcf, $subsample_eval_vcf_output, $variant_number);
-subsample_vcf(':0,1:',$standard_vcf, $subsample_std_vcf_output, $variant_number);
+subsample_vcf(':1,0:',$evaluated_vcf, $subsample_eval_vcf_output, $variant_number) if $evaluated_vcf;
+subsample_vcf(':0,1:',$standard_vcf, $subsample_std_vcf_output, $variant_number) if $standard_vcf;
 
 exit;
 
@@ -53,13 +53,13 @@ sub find_vcfs {
         die "Found more than one evaluated VCF file: " . join(" ", @evaluated_vcfs) . "\n";
     }
     unless(@evaluated_vcfs) {
-        die "Failed to find evaluated VCF file\n";
+        warn "Failed to find evaluated VCF file\n";
     }
     if(scalar(@standard_vcfs) > 1) {
         die "Found more than one standard VCF file: " . join(" ", @standard_vcfs) . "\n";
     }
     unless(@standard_vcfs) {
-        die "Failed to find standard VCF file\n";
+        warn "Failed to find standard VCF file\n";
     }
     #Above checks should implicitly ensure that we only have found one file.
     return (@evaluated_vcfs, @standard_vcfs);
