@@ -23,7 +23,7 @@ my $output_directory;
 my $help;
 
 sub print_help {
-    print STDERR __FILE__, " --evaluate-vcf-outdir <path> --variant-number <int> --outdir <path>\n";
+    print STDERR __FILE__, " --evaluate-vcf-outdir <path> --variant-number <int> --outdir <path> [--seed <int|777>]\n";
     exit 1;
 }
 
@@ -31,6 +31,7 @@ GetOptions(
     'evaluate-vcf-outdir=s' => \$evaluation_directory,
     'variant-number=i' => \$variant_number,
     'outdir=s' => \$output_directory,
+    'seed=i' => \$SEED,
     'help!' => \$help,
 ) or print_help();
 print_help() if($help || !(defined $evaluation_directory && defined $variant_number && $output_directory));
