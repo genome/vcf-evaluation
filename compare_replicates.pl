@@ -135,7 +135,7 @@ sub restrict {
     if(count($input_file)) {
         if($clean_indels) {
             my ($tfh, $tempfilename) = tempfile();
-            my $cmd = "zcat $input_file | $BEDTOOLS intersect -header -a stdin -b $roi_file > $tempfilename";
+            my $cmd = "zcat $input_file | $BEDTOOLS intersect -header -a stdin -b $roi_file | $JOINX sort - > $tempfilename";
             execute($cmd); #this is not very safe. I would really prefer to use Genome or IPC::Run
             my %bed_ends;
             my $fh = IO::File->new($roi_file) or die "Unable to open BED file $roi_file for removal of bad indel lines\n";
@@ -157,7 +157,7 @@ sub restrict {
             $tfh->close;
         }
         else {
-            my $cmd = "zcat $input_file | $BEDTOOLS intersect -header -a stdin -b $roi_file $bgzip_pipe_cmd > $output_file";
+            my $cmd = "zcat $input_file | $BEDTOOLS intersect -header -a stdin -b $roi_file | $JOINX sort - $bgzip_pipe_cmd > $output_file";
             execute($cmd); #this is not very safe. I would really prefer to use Genome or IPC::Run
         }
     }
